@@ -1,83 +1,148 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Color Trado</title>
-  <link rel="stylesheet" href="style.css" />
-  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet">
-  <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Color Prediction Game</title>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
+  <link href="styles.css" rel="stylesheet">
+  <!-- Firebase SDK v10+ -->
+  <script type="module" src="script.js"></script>
 </head>
 <body>
-  <div class="screen auth-container" id="auth-screen">
-    <h2>Welcome to Color Trado</h2>
-    <button class="auth-btn" id="google-signin">
-      <img src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/google/google-original.svg" width="20" />
-      Sign in with Google
-    </button>
-  </div>
-
-  <div class="screen hidden" id="game-screen">
-    <header class="app-header">
-      <div class="user-info">
-        <img id="user-pic" src="" alt="User Pic" />
-        <span id="user-name"></span>
-      </div>
-      <div class="wallet-actions">
-        <button class="btn-secondary" id="add-money">Add Money</button>
-        <button class="btn-primary" id="logout">Logout</button>
-      </div>
-    </header>
-
-    <main class="game-container">
-      <section class="current-round">
-        <div class="round-info">
-          <span>Round: <strong id="round-number">1</strong></span>
-          <span>Time Left: <strong id="time-left">30</strong>s</span>
+  <div id="app">
+    <!-- Auth Screen -->
+    <div id="auth-screen" class="screen">
+      <div class="auth-container">
+        <div class="logo">
+          <div class="color-circle red"></div>
+          <div class="color-circle green"></div>
+          <div class="color-circle blue"></div>
+          <h1>Color Predictor</h1>
         </div>
-        <div id="color-display" class="color-display"></div>
-      </section>
-
-      <section class="prediction-area">
-        <h3>Make Your Prediction</h3>
-        <div class="prediction-options">
-          <button class="prediction-btn red" data-color="red">Red</button>
-          <button class="prediction-btn green" data-color="green">Green</button>
-          <button class="prediction-btn blue" data-color="blue">Blue</button>
-        </div>
-        <div class="bet-amount">
-          <input type="number" id="bet-amount" placeholder="Enter amount" />
-          <button class="btn-primary" id="place-bet">Place Bet</button>
-        </div>
-      </section>
-
-      <section class="history">
-        <h3>Round History</h3>
-        <div class="history-grid" id="history-grid"></div>
-      </section>
-    </main>
-  </div>
-
-  <div class="modal hidden" id="payment-modal">
-    <div class="modal-content">
-      <h3>Add Money</h3>
-      <div class="payment-options">
-        <button class="amount-option" data-amount="50">Rs. 50</button>
-        <button class="amount-option" data-amount="100">Rs. 100</button>
-        <button class="amount-option" data-amount="200">Rs. 200</button>
-        <button class="amount-option" data-amount="500">Rs. 500</button>
+        <button id="googleSignIn" class="auth-btn">
+          <img src="assets/google-logo.png" alt="Google">
+          <span>Continue with Google</span>
+        </button>
+        <p class="disclaimer">By continuing, you agree to our Terms of Service</p>
       </div>
-      <div class="custom-amount">
-        <input type="number" id="custom-amount" placeholder="Enter custom amount" />
-      </div>
-      <div class="modal-actions">
-        <button class="btn-secondary" id="cancel-payment">Cancel</button>
-        <button class="btn-primary" id="proceed-payment">Pay</button>
+    </div>
+
+    <!-- Game Screen -->
+    <div id="game-screen" class="screen hidden">
+      <header class="app-header">
+        <div class="user-info">
+          <img id="user-avatar" src="assets/default-avatar.png" alt="User">
+          <div class="user-details">
+            <span id="user-name">Player</span>
+            <span class="balance">₹<span id="user-balance">0.00</span></span>
+          </div>
+        </div>
+        <div class="header-actions">
+          <button id="addFundsBtn" class="icon-btn">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 22C6.477 22 2 17.523 2 12S6.477 2 12 2s10 4.477 10 10-4.477 10-10 10zm-1-11H7v2h4v4h2v-4h4v-2h-4V7h-2v4z"/>
+            </svg>
+          </button>
+          <button id="signOutBtn" class="icon-btn">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M5 22a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1h14a1 1 0 0 1 1 1v3h-2V4H6v16h12v-2h2v3a1 1 0 0 1-1 1H5zm10-6v-3h-7v-2h7V8l5 4-5 4z"/>
+            </svg>
+          </button>
+        </div>
+      </header>
+
+      <main class="game-container">
+        <!-- Current Round -->
+        <section class="current-round">
+          <div class="round-header">
+            <h2>Round #<span id="round-number">0</span></h2>
+            <div class="timer">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 22C6.477 22 2 17.523 2 12S6.477 2 12 2s10 4.477 10 10-4.477 10-10 10zm0-2a8 8 0 1 0 0-16 8 8 0 0 0 0 16zm1-8h4v2h-6V7h2v5z"/>
+              </svg>
+              <span id="round-timer">00:00</span>
+            </div>
+          </div>
+          <div class="color-display" id="current-color"></div>
+        </section>
+
+        <!-- Prediction Area -->
+        <section class="prediction-area">
+          <h3>Place Your Bet</h3>
+          <div class="prediction-options">
+            <button class="prediction-btn red" data-color="red" data-multiplier="2">
+              <span>Red</span>
+              <span class="multiplier">2x</span>
+            </button>
+            <button class="prediction-btn green" data-color="green" data-multiplier="5">
+              <span>Green</span>
+              <span class="multiplier">5x</span>
+            </button>
+            <button class="prediction-btn blue" data-color="blue" data-multiplier="10">
+              <span>Blue</span>
+              <span class="multiplier">10x</span>
+            </button>
+          </div>
+          <div class="bet-controls">
+            <div class="amount-selector">
+              <button class="amount-btn minus">-</button>
+              <input type="number" id="bet-amount" value="10" min="10">
+              <button class="amount-btn plus">+</button>
+            </div>
+            <button id="place-bet" class="place-bet-btn">Place Bet</button>
+          </div>
+        </section>
+
+        <!-- Results History -->
+        <section class="history">
+          <h3>Recent Results</h3>
+          <div class="history-grid" id="history-grid"></div>
+        </section>
+      </main>
+    </div>
+
+    <!-- Payment Modal -->
+    <div id="payment-modal" class="modal hidden">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>Add Funds</h3>
+          <button id="close-modal" class="icon-btn">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 22C6.477 22 2 17.523 2 12S6.477 2 12 2s10 4.477 10 10-4.477 10-10 10zm0-2a8 8 0 1 0 0-16 8 8 0 0 0 0 16zm-4.707-5.707l1.414-1.414L12 13.414l3.293 3.293 1.414-1.414L13.414 12l3.293-3.293-1.414-1.414L12 10.586 8.707 7.293 7.293 8.707 10.586 12l-3.293 3.293z"/>
+            </svg>
+          </button>
+        </div>
+        <div class="payment-options">
+          <div class="payment-method">
+            <h4>UPI Payment</h4>
+            <div class="upi-details">
+              <img src="assets/upi-logo.png" alt="UPI">
+              <div class="vpa">
+                <span>9825537505@fam</span>
+                <button id="copy-vpa" class="copy-btn">Copy</button>
+              </div>
+            </div>
+            <p class="note">Send payment to this UPI ID and your balance will be updated within 5 minutes</p>
+          </div>
+          <div class="amount-options">
+            <h4>Quick Select</h4>
+            <div class="amount-buttons">
+              <button class="amount-option" data-amount="100">₹100</button>
+              <button class="amount-option" data-amount="500">₹500</button>
+              <button class="amount-option" data-amount="1000">₹1,000</button>
+              <button class="amount-option" data-amount="2000">₹2,000</button>
+            </div>
+          </div>
+          <div class="custom-amount">
+            <input type="number" id="custom-amount" placeholder="Enter custom amount" min="10">
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button id="confirm-payment" class="confirm-btn">I've Made Payment</button>
+        </div>
       </div>
     </div>
   </div>
-
-  <script src="firebase.js" type="module"></script>
-  <script src="app.js" type="module"></script>
 </body>
 </html>
