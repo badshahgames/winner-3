@@ -1,3 +1,26 @@
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+import { 
+  getAuth, 
+  GoogleAuthProvider, 
+  signInWithPopup,
+  signOut,
+  onAuthStateChanged
+} from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+import { 
+  getFirestore,
+  doc,
+  getDoc,
+  setDoc,
+  updateDoc,
+  collection,
+  query,
+  where,
+  onSnapshot,
+  serverTimestamp,
+  increment,
+  runTransaction
+} from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
 // Firebase configuration
 const firebaseConfig = {
   apiKey: "AIzaSyBci1YLe6TGuv9NHFRf1ljBnLH-ULj8jWs",
@@ -5,15 +28,17 @@ const firebaseConfig = {
   projectId: "color-trado",
   storageBucket: "color-trado.firebasestorage.app",
   messagingSenderId: "960118997572",
-  appId: "1:960118997572:web:4d533860f2daa609b3b211",
-  measurementId: "G-F3QLVXY0NW"
+  appId: "1:960118997572:web:4d533860f2daa609b3b211"
 };
 
 // Initialize Firebase
-const app = firebase.initializeApp(firebaseConfig);
-const auth = firebase.auth();
-const db = firebase.firestore();
-const provider = new firebase.auth.GoogleAuthProvider();
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+const provider = new GoogleAuthProvider();
+
+// Stripe integration
+const stripe = Stripe('YOUR_STRIPE_PUBLIC_KEY');
 
 // DOM elements
 const authScreen = document.getElementById('auth-screen');
@@ -21,289 +46,332 @@ const gameScreen = document.getElementById('game-screen');
 const googleSignInBtn = document.getElementById('googleSignIn');
 const signOutBtn = document.getElementById('signOutBtn');
 const userName = document.getElementById('user-name');
-const userEmail = document.getElementById('user-email');
 const userAvatar = document.getElementById('user-avatar');
 const userBalance = document.getElementById('user-balance');
 const addFundsBtn = document.getElementById('addFundsBtn');
-const adminPanel = document.getElementById('admin-panel');
-const marketplaceGrid = document.getElementById('marketplace-grid');
-const userCollection = document.getElementById('user-collection');
+const roundTimer = document.getElementById('round-timer');
+const roundNumber = document.getElementById('round-number');
+const currentColor = document.getElementById('current-color');
+const betAmountInput = document.getElementById('bet-amount');
+const placeBetBtn = document.getElementById('place-bet');
+const historyGrid = document.getElementById('history-grid');
 const paymentModal = document.getElementById('payment-modal');
-const amountInput = document.getElementById('amount-input');
+const amountOptions = document.querySelectorAll('.amount-option');
+const customAmountInput = document.getElementById('custom-amount');
 const confirmPaymentBtn = document.getElementById('confirm-payment');
 const cancelPaymentBtn = document.getElementById('cancel-payment');
 
-// Admin UID (replace with your admin UID)
-const ADMIN_UID = "your-admin-uid-here";
-
-// Current user data
+// Game state
 let currentUser = null;
+let currentRound = null;
+let roundInterval = null;
+let timeLeft = 0;
+let userBet = null;
 
 // Initialize the game
 function initGame() {
-  // Set up event listeners
+  setupEventListeners();
+  setupAuthStateListener();
+  setupRoundListener();
+  setupHistoryListener();
+}
+
+// Set up event listeners
+function setupEventListeners() {
   googleSignInBtn.addEventListener('click', signInWithGoogle);
-  signOutBtn.addEventListener('click', signOut);
+  signOutBtn.addEventListener('click', handleSignOut);
   addFundsBtn.addEventListener('click', showPaymentModal);
+  placeBetBtn.addEventListener('click', placeBet);
+  amountOptions.forEach(option => {
+    option.addEventListener('click', () => selectAmount(option.dataset.amount));
+  });
   confirmPaymentBtn.addEventListener('click', processPayment);
   cancelPaymentBtn.addEventListener('click', hidePaymentModal);
+}
 
-  // Check auth state
-  auth.onAuthStateChanged(user => {
+// Set up auth state listener
+function setupAuthStateListener() {
+  onAuthStateChanged(auth, (user) => {
     if (user) {
-      // User is signed in
       currentUser = user;
       authScreen.classList.add('hidden');
       gameScreen.classList.remove('hidden');
       updateUserInfo(user);
-      
-      // Check if admin
-      if (user.uid === ADMIN_UID) {
-        adminPanel.classList.remove('hidden');
-      }
-      
-      // Load game data
-      loadGameData(user.uid);
+      loadUserData(user.uid);
     } else {
-      // User is signed out
       currentUser = null;
       authScreen.classList.remove('hidden');
       gameScreen.classList.add('hidden');
+      resetGameState();
     }
   });
 }
 
-// Sign in with Google
-function signInWithGoogle() {
-  auth.signInWithPopup(provider)
-    .then((result) => {
-      // Check if user exists in Firestore
-      const user = result.user;
-      const userRef = db.collection('users').doc(user.uid);
+// Set up round listener
+function setupRoundListener() {
+  const roundRef = doc(db, 'game', 'currentRound');
+  
+  onSnapshot(roundRef, (doc) => {
+    if (doc.exists()) {
+      currentRound = doc.data();
+      updateRoundDisplay();
       
-      userRef.get().then(doc => {
-        if (!doc.exists) {
-          // Create new user document
-          userRef.set({
-            name: user.displayName,
-            email: user.email,
-            balance: 100, // Starting balance
-            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-            isAdmin: user.uid === ADMIN_UID
-          });
-        }
-      });
-    })
-    .catch((error) => {
-      console.error("Sign in error:", error);
-      alert("Sign in failed: " + error.message);
+      // Clear any existing interval
+      if (roundInterval) clearInterval(roundInterval);
+      
+      // Start countdown if round is active
+      if (currentRound.status === 'running') {
+        startRoundCountdown();
+      }
+    }
+  });
+}
+
+// Set up history listener
+function setupHistoryListener() {
+  const historyRef = collection(db, 'history');
+  const q = query(historyRef, where('timestamp', '>', new Date(Date.now() - 86400000))); // Last 24 hours
+  
+  onSnapshot(q, (snapshot) => {
+    historyGrid.innerHTML = '';
+    snapshot.docs.forEach(doc => {
+      const result = doc.data();
+      addHistoryItem(result);
     });
+  });
 }
 
-// Sign out
-function signOut() {
-  auth.signOut();
+// Update round display
+function updateRoundDisplay() {
+  roundNumber.textContent = currentRound.roundNumber;
+  
+  if (currentRound.status === 'running') {
+    currentColor.style.backgroundColor = 'transparent';
+    timeLeft = Math.floor((currentRound.endTime.toDate() - Date.now()) / 1000);
+    updateTimerDisplay();
+  } else if (currentRound.status === 'ended') {
+    currentColor.style.backgroundColor = currentRound.result.color;
+    roundTimer.textContent = 'Round Ended';
+  }
 }
 
-// Update user info in UI
+// Start round countdown
+function startRoundCountdown() {
+  updateTimerDisplay();
+  
+  roundInterval = setInterval(() => {
+    timeLeft--;
+    updateTimerDisplay();
+    
+    if (timeLeft <= 0) {
+      clearInterval(roundInterval);
+      roundTimer.textContent = 'Calculating...';
+    }
+  }, 1000);
+}
+
+// Update timer display
+function updateTimerDisplay() {
+  const minutes = Math.floor(timeLeft / 60);
+  const seconds = timeLeft % 60;
+  roundTimer.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+}
+
+// Update user info
 function updateUserInfo(user) {
-  userName.textContent = user.displayName || "User";
-  userEmail.textContent = user.email;
+  userName.textContent = user.displayName || 'Player';
   if (user.photoURL) {
     userAvatar.src = user.photoURL;
   }
 }
 
-// Load game data
-function loadGameData(userId) {
-  // Load user balance
-  db.collection('users').doc(userId).onSnapshot(doc => {
-    if (doc.exists) {
+// Load user data
+async function loadUserData(userId) {
+  const userRef = doc(db, 'users', userId);
+  
+  onSnapshot(userRef, (doc) => {
+    if (doc.exists()) {
       const userData = doc.data();
       userBalance.textContent = userData.balance.toFixed(2);
     }
   });
-
-  // Load marketplace colors
-  db.collection('colors')
-    .where('owner', '==', 'marketplace')
-    .onSnapshot(snapshot => {
-      marketplaceGrid.innerHTML = '';
-      snapshot.forEach(doc => {
-        const color = doc.data();
-        createColorCard(color, doc.id, 'marketplace');
-      });
-    });
-
-  // Load user's collection
-  db.collection('colors')
-    .where('owner', '==', userId)
-    .onSnapshot(snapshot => {
-      userCollection.innerHTML = '';
-      snapshot.forEach(doc => {
-        const color = doc.data();
-        createColorCard(color, doc.id, 'collection');
-      });
-    });
 }
 
-// Create color card element
-function createColorCard(color, colorId, type) {
-  const card = document.createElement('div');
-  card.className = 'color-card';
-  card.style.backgroundColor = color.hex;
+// Place bet
+async function placeBet() {
+  if (!currentUser || !currentRound || currentRound.status !== 'running') return;
   
-  const name = document.createElement('h3');
-  name.textContent = color.name;
-  
-  const price = document.createElement('div');
-  price.className = 'color-price';
-  price.textContent = `₹${color.price.toFixed(2)}`;
-  
-  card.appendChild(name);
-  card.appendChild(price);
-  
-  if (type === 'marketplace') {
-    card.addEventListener('click', () => buyColor(colorId, color.price));
+  const amount = parseFloat(betAmountInput.value);
+  if (isNaN(amount) {
+    alert('Please enter a valid bet amount');
+    return;
   }
   
-  if (type === 'collection') {
-    card.addEventListener('click', () => sellColor(colorId, color.price));
+  const selectedColor = document.querySelector('.prediction-btn.active');
+  if (!selectedColor) {
+    alert('Please select a color to bet on');
+    return;
   }
   
-  if (type === 'marketplace') {
-    marketplaceGrid.appendChild(card);
-  } else {
-    userCollection.appendChild(card);
-  }
-}
-
-// Buy color
-function buyColor(colorId, price) {
-  if (!currentUser) return;
+  const color = selectedColor.dataset.color;
+  const multiplier = getMultiplierForColor(color);
   
-  const userRef = db.collection('users').doc(currentUser.uid);
-  const colorRef = db.collection('colors').doc(colorId);
-  
-  db.runTransaction(transaction => {
-    return transaction.get(userRef).then(userDoc => {
-      if (!userDoc.exists) throw "User document does not exist!";
+  try {
+    const userRef = doc(db, 'users', currentUser.uid);
+    const betRef = doc(db, 'bets', `${currentUser.uid}_${currentRound.roundNumber}`);
+    
+    await runTransaction(db, async (transaction) => {
+      const userDoc = await transaction.get(userRef);
+      if (!userDoc.exists()) throw 'User not found';
       
       const userData = userDoc.data();
-      if (userData.balance < price) {
-        throw "Not enough balance to buy this color!";
-      }
+      if (userData.balance < amount) throw 'Insufficient balance';
       
-      // Update user balance
+      // Deduct bet amount from balance
       transaction.update(userRef, {
-        balance: firebase.firestore.FieldValue.increment(-price)
+        balance: increment(-amount)
       });
       
-      // Transfer color ownership
-      transaction.update(colorRef, {
-        owner: currentUser.uid
+      // Record the bet
+      transaction.set(betRef, {
+        userId: currentUser.uid,
+        roundNumber: currentRound.roundNumber,
+        color,
+        amount,
+        multiplier,
+        timestamp: serverTimestamp()
       });
     });
-  }).then(() => {
-    alert("Color purchased successfully!");
-  }).catch(error => {
-    console.error("Transaction failed:", error);
-    alert("Purchase failed: " + error);
-  });
+    
+    userBet = { color, amount, multiplier };
+    alert(`Bet placed: ₹${amount} on ${color}`);
+  } catch (error) {
+    console.error('Bet placement failed:', error);
+    alert(`Bet failed: ${error}`);
+  }
 }
 
-// Sell color
-function sellColor(colorId, price) {
-  if (!currentUser) return;
-  
-  const userRef = db.collection('users').doc(currentUser.uid);
-  const colorRef = db.collection('colors').doc(colorId);
-  
-  db.runTransaction(transaction => {
-    return transaction.get(userRef).then(userDoc => {
-      if (!userDoc.exists) throw "User document does not exist!";
-      
-      // Update user balance
-      transaction.update(userRef, {
-        balance: firebase.firestore.FieldValue.increment(price)
-      });
-      
-      // Transfer color to marketplace
-      transaction.update(colorRef, {
-        owner: 'marketplace'
-      });
-    });
-  }).then(() => {
-    alert("Color sold successfully!");
-  }).catch(error => {
-    console.error("Transaction failed:", error);
-    alert("Sale failed: " + error);
-  });
+// Get multiplier for color
+function getMultiplierForColor(color) {
+  switch (color) {
+    case 'red': return 2;
+    case 'green': return 5;
+    case 'blue': return 10;
+    default: return 1;
+  }
 }
 
-// Payment functions
+// Show payment modal
 function showPaymentModal() {
   paymentModal.classList.remove('hidden');
 }
 
+// Hide payment modal
 function hidePaymentModal() {
   paymentModal.classList.add('hidden');
-  amountInput.value = '';
 }
 
-function processPayment() {
-  const amount = parseFloat(amountInput.value);
-  
-  if (isNaN(amount) {
-    alert("Please enter a valid amount");
+// Select amount
+function selectAmount(amount) {
+  customAmountInput.value = amount;
+}
+
+// Process payment
+async function processPayment() {
+  const amount = parseFloat(customAmountInput.value);
+  if (isNaN(amount) || amount < 10) {
+    alert('Please enter a valid amount (minimum ₹10)');
     return;
   }
   
-  if (amount < 10) {
-    alert("Minimum amount is ₹10");
-    return;
+  try {
+    // Create a payment intent on your server (you'll need a backend for this)
+    // This is a placeholder - you'll need to implement your own payment processing
+    const response = await fetch('YOUR_BACKEND_ENDPOINT/create-payment-intent', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${await currentUser.getIdToken()}`
+      },
+      body: JSON.stringify({
+        amount: amount * 100, // in paise
+        currency: 'INR',
+        userId: currentUser.uid
+      })
+    });
+    
+    const { clientSecret } = await response.json();
+    
+    // Confirm payment with Stripe
+    const { error, paymentIntent } = await stripe.confirmPayment({
+      elements,
+      clientSecret,
+      confirmParams: {
+        return_url: window.location.href,
+        receipt_email: currentUser.email,
+      },
+    });
+    
+    if (error) throw error;
+    
+    alert('Payment successful! Your balance will be updated shortly.');
+    hidePaymentModal();
+  } catch (error) {
+    console.error('Payment failed:', error);
+    alert(`Payment failed: ${error.message}`);
   }
-  
-  // Create Razorpay options
-  const options = {
-    key: "YOUR_RAZORPAY_KEY",
-    amount: amount * 100, // in paise
-    currency: "INR",
-    name: "Color Trading Game",
-    description: "Add funds to wallet",
-    image: "assets/default-avatar.png",
-    prefill: {
-      name: currentUser.displayName || "User",
-      email: currentUser.email || "9825537505@fam",
-      contact: "9825537505"
-    },
-    handler: function(response) {
-      // Payment success
-      addFundsToWallet(amount);
-      hidePaymentModal();
-    },
-    theme: {
-      color: "#6c5ce7"
+}
+
+// Add history item
+function addHistoryItem(result) {
+  const item = document.createElement('div');
+  item.className = 'history-item';
+  item.style.backgroundColor = result.color;
+  item.textContent = result.color.charAt(0).toUpperCase();
+  historyGrid.appendChild(item);
+}
+
+// Reset game state
+function resetGameState() {
+  if (roundInterval) clearInterval(roundInterval);
+  currentRound = null;
+  userBet = null;
+}
+
+// Sign in with Google
+async function signInWithGoogle() {
+  try {
+    const result = await signInWithPopup(auth, provider);
+    const user = result.user;
+    
+    // Check if user exists in Firestore
+    const userRef = doc(db, 'users', user.uid);
+    const userDoc = await getDoc(userRef);
+    
+    if (!userDoc.exists()) {
+      // Create new user document
+      await setDoc(userRef, {
+        name: user.displayName,
+        email: user.email,
+        balance: 0,
+        createdAt: serverTimestamp(),
+        lastLogin: serverTimestamp()
+      });
+    } else {
+      // Update last login time
+      await updateDoc(userRef, {
+        lastLogin: serverTimestamp()
+      });
     }
-  };
-  
-  const rzp = new Razorpay(options);
-  rzp.open();
+  } catch (error) {
+    console.error('Sign in failed:', error);
+    alert(`Sign in failed: ${error.message}`);
+  }
 }
 
-function addFundsToWallet(amount) {
-  if (!currentUser) return;
-  
-  const userRef = db.collection('users').doc(currentUser.uid);
-  
-  userRef.update({
-    balance: firebase.firestore.FieldValue.increment(amount)
-  }).then(() => {
-    alert(`Successfully added ₹${amount.toFixed(2)} to your wallet!`);
-  }).catch(error => {
-    console.error("Error adding funds:", error);
-    alert("Failed to add funds: " + error.message);
-  });
+// Handle sign out
+function handleSignOut() {
+  signOut(auth);
 }
 
 // Initialize the game when DOM is loaded
