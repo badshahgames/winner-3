@@ -1,101 +1,83 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Color Prediction Game</title>
-  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
-  <link href="styles.css" rel="stylesheet">
-  <!-- Stripe.js -->
-  <script src="https://js.stripe.com/v3/"></script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Color Trado</title>
+  <link rel="stylesheet" href="style.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet">
+  <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
 </head>
 <body>
-  <div id="app">
-    <!-- Auth Screen -->
-    <div id="auth-screen" class="screen">
-      <div class="auth-container">
-        <h1>Color Prediction</h1>
-        <button id="googleSignIn" class="auth-btn">
-          <img src="assets/google-logo.png" alt="Google">
-          Sign in with Google
-        </button>
+  <div class="screen auth-container" id="auth-screen">
+    <h2>Welcome to Color Trado</h2>
+    <button class="auth-btn" id="google-signin">
+      <img src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/google/google-original.svg" width="20" />
+      Sign in with Google
+    </button>
+  </div>
+
+  <div class="screen hidden" id="game-screen">
+    <header class="app-header">
+      <div class="user-info">
+        <img id="user-pic" src="" alt="User Pic" />
+        <span id="user-name"></span>
       </div>
-    </div>
+      <div class="wallet-actions">
+        <button class="btn-secondary" id="add-money">Add Money</button>
+        <button class="btn-primary" id="logout">Logout</button>
+      </div>
+    </header>
 
-    <!-- Game Screen -->
-    <div id="game-screen" class="screen hidden">
-      <header class="app-header">
-        <div class="user-info">
-          <img id="user-avatar" src="assets/default-avatar.png" alt="User">
-          <span id="user-name"></span>
-          <span>Balance: ₹<span id="user-balance">0.00</span></span>
+    <main class="game-container">
+      <section class="current-round">
+        <div class="round-info">
+          <span>Round: <strong id="round-number">1</strong></span>
+          <span>Time Left: <strong id="time-left">30</strong>s</span>
         </div>
-        <div class="wallet-actions">
-          <button id="addFundsBtn" class="btn-primary">Add Funds</button>
-          <button id="signOutBtn" class="btn-secondary">Logout</button>
-        </div>
-      </header>
+        <div id="color-display" class="color-display"></div>
+      </section>
 
-      <main class="game-container">
-        <!-- Current Round -->
-        <section class="current-round">
-          <h2>Current Round</h2>
-          <div class="round-info">
-            <div class="round-timer">
-              <span>Time Left: </span>
-              <span id="round-timer">00:00</span>
-            </div>
-            <div class="round-number">
-              <span>Round #<span id="round-number">0</span></span>
-            </div>
-          </div>
-          <div class="color-display" id="current-color"></div>
-        </section>
-
-        <!-- Prediction Area -->
-        <section class="prediction-area">
-          <h2>Make Your Prediction</h2>
-          <div class="prediction-options">
-            <button class="prediction-btn red" data-color="red">Red (2x)</button>
-            <button class="prediction-btn green" data-color="green">Green (5x)</button>
-            <button class="prediction-btn blue" data-color="blue">Blue (10x)</button>
-          </div>
-          <div class="bet-amount">
-            <input type="number" id="bet-amount" min="10" value="10">
-            <button id="place-bet" class="btn-primary">Place Bet</button>
-          </div>
-        </section>
-
-        <!-- Results History -->
-        <section class="history">
-          <h2>Previous Results</h2>
-          <div class="history-grid" id="history-grid"></div>
-        </section>
-      </main>
-    </div>
-
-    <!-- Payment Modal -->
-    <div id="payment-modal" class="modal hidden">
-      <div class="modal-content">
-        <h3>Add Funds</h3>
-        <div class="payment-options">
-          <button class="amount-option" data-amount="100">₹100</button>
-          <button class="amount-option" data-amount="500">₹500</button>
-          <button class="amount-option" data-amount="1000">₹1000</button>
-          <button class="amount-option" data-amount="2000">₹2000</button>
+      <section class="prediction-area">
+        <h3>Make Your Prediction</h3>
+        <div class="prediction-options">
+          <button class="prediction-btn red" data-color="red">Red</button>
+          <button class="prediction-btn green" data-color="green">Green</button>
+          <button class="prediction-btn blue" data-color="blue">Blue</button>
         </div>
-        <div class="custom-amount">
-          <input type="number" id="custom-amount" placeholder="Custom amount" min="10">
+        <div class="bet-amount">
+          <input type="number" id="bet-amount" placeholder="Enter amount" />
+          <button class="btn-primary" id="place-bet">Place Bet</button>
         </div>
-        <div class="modal-actions">
-          <button id="cancel-payment" class="btn-secondary">Cancel</button>
-          <button id="confirm-payment" class="btn-primary">Pay Now</button>
-        </div>
+      </section>
+
+      <section class="history">
+        <h3>Round History</h3>
+        <div class="history-grid" id="history-grid"></div>
+      </section>
+    </main>
+  </div>
+
+  <div class="modal hidden" id="payment-modal">
+    <div class="modal-content">
+      <h3>Add Money</h3>
+      <div class="payment-options">
+        <button class="amount-option" data-amount="50">Rs. 50</button>
+        <button class="amount-option" data-amount="100">Rs. 100</button>
+        <button class="amount-option" data-amount="200">Rs. 200</button>
+        <button class="amount-option" data-amount="500">Rs. 500</button>
+      </div>
+      <div class="custom-amount">
+        <input type="number" id="custom-amount" placeholder="Enter custom amount" />
+      </div>
+      <div class="modal-actions">
+        <button class="btn-secondary" id="cancel-payment">Cancel</button>
+        <button class="btn-primary" id="proceed-payment">Pay</button>
       </div>
     </div>
   </div>
 
-  <!-- Firebase SDK -->
-  <script type="module" src="script.js"></script>
+  <script src="firebase.js" type="module"></script>
+  <script src="app.js" type="module"></script>
 </body>
 </html>
