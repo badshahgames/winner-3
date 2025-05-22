@@ -5,6 +5,9 @@
   --dark: #2d3436;
   --light: #f5f6fa;
   --white: #ffffff;
+  --red: #e74c3c;
+  --green: #2ecc71;
+  --blue: #3498db;
   --shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
 }
 
@@ -85,9 +88,8 @@ body {
   border-radius: 50%;
 }
 
-.wallet {
+.wallet-actions {
   display: flex;
-  align-items: center;
   gap: 1rem;
 }
 
@@ -126,61 +128,106 @@ body {
   margin: 0 auto;
 }
 
-/* Color Grid */
-.color-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-  gap: 1rem;
-  margin-top: 1rem;
-}
-
-.color-card {
-  height: 150px;
-  border-radius: 8px;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  padding: 1rem;
-  color: white;
-  box-shadow: var(--shadow);
-  position: relative;
-  overflow: hidden;
-}
-
-.color-card h3 {
-  font-size: 1rem;
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
-}
-
-.color-card .color-price {
-  background-color: rgba(0, 0, 0, 0.6);
-  padding: 4px 8px;
-  border-radius: 4px;
-  align-self: flex-end;
-}
-
-/* Admin Panel */
-.admin-panel {
+/* Current Round */
+.current-round {
   background-color: var(--white);
-  padding: 1rem;
+  padding: 1.5rem;
   border-radius: 8px;
   margin-bottom: 2rem;
   box-shadow: var(--shadow);
 }
 
-.admin-actions {
+.round-info {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+}
+
+.color-display {
+  height: 150px;
+  border-radius: 8px;
+  margin-top: 1rem;
+  transition: background-color 0.5s;
+}
+
+/* Prediction Area */
+.prediction-area {
+  background-color: var(--white);
+  padding: 1.5rem;
+  border-radius: 8px;
+  margin-bottom: 2rem;
+  box-shadow: var(--shadow);
+}
+
+.prediction-options {
+  display: flex;
+  gap: 1rem;
+  margin: 1rem 0;
+}
+
+.prediction-btn {
+  flex: 1;
+  padding: 12px;
+  border: none;
+  border-radius: 4px;
+  color: white;
+  font-weight: bold;
+  cursor: pointer;
+  transition: transform 0.2s;
+}
+
+.prediction-btn:hover {
+  transform: translateY(-2px);
+}
+
+.prediction-btn.red {
+  background-color: var(--red);
+}
+
+.prediction-btn.green {
+  background-color: var(--green);
+}
+
+.prediction-btn.blue {
+  background-color: var(--blue);
+}
+
+.bet-amount {
   display: flex;
   gap: 1rem;
   margin-top: 1rem;
 }
 
-.btn-admin {
-  background-color: var(--accent);
-  color: white;
-  border: none;
-  padding: 8px 16px;
+.bet-amount input {
+  flex: 1;
+  padding: 8px 12px;
+  border: 1px solid #ddd;
   border-radius: 4px;
-  cursor: pointer;
+}
+
+/* History */
+.history {
+  background-color: var(--white);
+  padding: 1.5rem;
+  border-radius: 8px;
+  box-shadow: var(--shadow);
+}
+
+.history-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.history-item {
+  height: 80px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-weight: bold;
 }
 
 /* Modal */
@@ -205,16 +252,32 @@ body {
   max-width: 400px;
 }
 
-.modal-content h3 {
-  margin-bottom: 1rem;
+.payment-options {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  margin: 1rem 0;
 }
 
-.modal-content input {
+.amount-option {
+  padding: 12px;
+  background-color: var(--light);
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.amount-option:hover {
+  background-color: #e0e0e0;
+}
+
+.custom-amount input {
   width: 100%;
-  padding: 10px;
-  margin-bottom: 1rem;
+  padding: 8px 12px;
   border: 1px solid #ddd;
   border-radius: 4px;
+  margin: 1rem 0;
 }
 
 .modal-actions {
