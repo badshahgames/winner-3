@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Color Trading Game</title>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
+  <link href="styles.css" rel="stylesheet">
+  <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore-compat.js"></script>
+  <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+</head>
+<body>
+  <div id="app">
+    <!-- Auth Screen -->
+    <div id="auth-screen" class="screen">
+      <div class="auth-container">
+        <h1>Color Trading Game</h1>
+        <button id="googleSignIn" class="auth-btn">
+          <img src="assets/google-logo.png" alt="Google">
+          Sign in with Google
+        </button>
+      </div>
+    </div>
+
+    <!-- Main Game -->
+    <div id="game-screen" class="screen hidden">
+      <header class="app-header">
+        <div class="user-info">
+          <img id="user-avatar" src="assets/default-avatar.png" alt="User">
+          <span id="user-name"></span>
+          <span id="user-email"></span>
+        </div>
+        <div class="wallet">
+          <span>Balance: ₹<span id="user-balance">0.00</span></span>
+          <button id="addFundsBtn" class="btn-primary">+ Add Funds</button>
+          <button id="signOutBtn" class="btn-secondary">Logout</button>
+        </div>
+      </header>
+
+      <main class="game-container">
+        <!-- Admin Panel -->
+        <div id="admin-panel" class="admin-panel hidden">
+          <h2>Admin Controls</h2>
+          <div class="admin-actions">
+            <button id="createColorBtn" class="btn-admin">Create Rare Color</button>
+            <button id="manageUsersBtn" class="btn-admin">Manage Users</button>
+          </div>
+        </div>
+
+        <!-- Color Marketplace -->
+        <section class="marketplace-section">
+          <h2>Color Marketplace</h2>
+          <div class="color-grid" id="marketplace-grid">
+            <!-- Colors will be loaded here -->
+          </div>
+        </section>
+
+        <!-- User Collection -->
+        <section class="collection-section">
+          <h2>Your Collection</h2>
+          <div class="color-grid" id="user-collection">
+            <!-- User's colors will be loaded here -->
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <!-- Payment Modal -->
+    <div id="payment-modal" class="modal hidden">
+      <div class="modal-content">
+        <h3>Add Funds to Wallet</h3>
+        <input type="number" id="amount-input" placeholder="Enter amount (₹)" min="10">
+        <div class="modal-actions">
+          <button id="cancel-payment" class="btn-secondary">Cancel</button>
+          <button id="confirm-payment" class="btn-primary">Pay with Razorpay</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
