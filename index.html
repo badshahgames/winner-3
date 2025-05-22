@@ -4,82 +4,230 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Color Trading Game</title>
-  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
-  <link href="styles.css" rel="stylesheet">
-  <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-auth-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore-compat.js"></script>
+  <link rel="stylesheet" href="styles.css">
+  <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-auth.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-firestore.js"></script>
   <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
 </head>
 <body>
-  <div id="app">
-    <!-- Auth Screen -->
-    <div id="auth-screen" class="screen">
-      <div class="auth-container">
-        <h1>Color Trading Game</h1>
-        <button id="googleSignIn" class="auth-btn">
-          <img src="assets/google-logo.png" alt="Google">
-          Sign in with Google
-        </button>
+  <!-- Authentication Screen -->
+  <div id="auth-screen" class="screen">
+    <div class="auth-container">
+      <h2>Welcome to Color Trading Game</h2>
+      <button id="googleSignIn" class="auth-btn">Sign in with Google</button>
+    </div>
+  </div>
+
+  <!-- Game Screen -->
+  <div id="game-screen" class="screen hidden">
+    <header class="app-header">
+      <div class="user-info">
+        <img id="user-avatar" src="assets/default-avatar.png" alt="User Avatar">
+        <div>
+          <h3 id="user-name">User Name</h3>
+          <p id="user-email">user@example.com</p>
+        </div>
+      </div>
+      <div class="wallet">
+        <span>Balance: ₹<span id="user-balance">0.00</span></span>
+        <button id="addFundsBtn" class="btn-primary">Add Funds</button>
+        <button id="signOutBtn" class="btn-secondary">Sign Out</button>
+      </div>
+    </header>
+
+    <!-- Admin Panel -->
+    <div id="admin-panel" class="admin-panel hidden">
+      <h3>Admin Panel</h3>
+      <div class="admin-actions">
+        <!-- Admin actions go here -->
       </div>
     </div>
 
-    <!-- Main Game -->
-    <div id="game-screen" class="screen hidden">
-      <header class="app-header">
-        <div class="user-info">
-          <img id="user-avatar" src="assets/default-avatar.png" alt="User">
-          <span id="user-name"></span>
-          <span id="user-email"></span>
-        </div>
-        <div class="wallet">
-          <span>Balance: ₹<span id="user-balance">0.00</span></span>
-          <button id="addFundsBtn" class="btn-primary">+ Add Funds</button>
-          <button id="signOutBtn" class="btn-secondary">Logout</button>
-        </div>
-      </header>
+    <!-- Game Container -->
+    <div class="game-container">
+      <h2>Marketplace</h2>
+      <div id="marketplace-grid" class="color-grid"></div>
 
-      <main class="game-container">
-        <!-- Admin Panel -->
-        <div id="admin-panel" class="admin-panel hidden">
-          <h2>Admin Controls</h2>
-          <div class="admin-actions">
-            <button id="createColorBtn" class="btn-admin">Create Rare Color</button>
-            <button id="manageUsersBtn" class="btn-admin">Manage Users</button>
-          </div>
-        </div>
-
-        <!-- Color Marketplace -->
-        <section class="marketplace-section">
-          <h2>Color Marketplace</h2>
-          <div class="color-grid" id="marketplace-grid">
-            <!-- Colors will be loaded here -->
-          </div>
-        </section>
-
-        <!-- User Collection -->
-        <section class="collection-section">
-          <h2>Your Collection</h2>
-          <div class="color-grid" id="user-collection">
-            <!-- User's colors will be loaded here -->
-          </div>
-        </section>
-      </main>
+      <h2>Your Collection</h2>
+      <div id="user-collection" class="color-grid"></div>
     </div>
+  </div>
 
-    <!-- Payment Modal -->
-    <div id="payment-modal" class="modal hidden">
-      <div class="modal-content">
-        <h3>Add Funds to Wallet</h3>
-        <input type="number" id="amount-input" placeholder="Enter amount (₹)" min="10">
-        <div class="modal-actions">
-          <button id="cancel-payment" class="btn-secondary">Cancel</button>
-          <button id="confirm-payment" class="btn-primary">Pay with Razorpay</button>
-        </div>
+  <!-- Payment Modal -->
+  <div id="payment-modal" class="modal hidden">
+    <div class="modal-content">
+      <h3>Add Funds</h3>
+      <input type="number" id="amount-input" placeholder="Enter amount (₹)">
+      <div class="modal-actions">
+        <button id="confirm-payment" class="btn-primary">Confirm</button>
+        <button id="cancel-payment" class="btn-secondary">Cancel</button>
       </div>
     </div>
   </div>
 
-  <script src="script.js"></script>
+  <script type="module">
+    import { initializeApp } from 'https://www.gstatic.com/firebasejs/9.6.10/firebase-app.js';
+    import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged, signOut } from 'https://www.gstatic.com/firebasejs/9.6.10/firebase-auth.js';
+    import { getFirestore, doc, getDoc, setDoc, updateDoc, onSnapshot, collection, query, where, getDocs, increment, runTransaction } from 'https://www.gstatic.com/firebasejs/9.6.10/firebase-firestore.js';
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyBci1YLe6TGuv9NHFRf1ljBnLH-ULj8jWs",
+      authDomain: "color-trado.firebaseapp.com",
+      projectId: "color-trado",
+      storageBucket: "color-trado.appspot.com",
+      messagingSenderId: "960118997572",
+      appId: "1:960118997572:web:4d533860f2daa609b3b211",
+      measurementId: "G-F3QLVXY0NW"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+    const provider = new GoogleAuthProvider();
+
+    const ADMIN_UID = "your-admin-uid-here";
+    let currentUser = null;
+
+    const authScreen = document.getElementById('auth-screen');
+    const gameScreen = document.getElementById('game-screen');
+    const googleSignInBtn = document.getElementById('googleSignIn');
+    const signOutBtn = document.getElementById('signOutBtn');
+    const userName = document.getElementById('user-name');
+    const userEmail = document.getElementById('user-email');
+    const userAvatar = document.getElementById('user-avatar');
+    const userBalance = document.getElementById('user-balance');
+    const addFundsBtn = document.getElementById('addFundsBtn');
+    const adminPanel = document.getElementById('admin-panel');
+    const marketplaceGrid = document.getElementById('marketplace-grid');
+    const userCollection = document.getElementById('user-collection');
+    const paymentModal = document.getElementById('payment-modal');
+    const amountInput = document.getElementById('amount-input');
+    const confirmPaymentBtn = document.getElementById('confirm-payment');
+    const cancelPaymentBtn = document.getElementById('cancel-payment');
+
+    googleSignInBtn.addEventListener('click', () => {
+      signInWithPopup(auth, provider)
+        .then(async result => {
+          const user = result.user;
+          const userRef = doc(db, 'users', user.uid);
+          const userSnap = await getDoc(userRef);
+
+          if (!userSnap.exists()) {
+            await setDoc(userRef, {
+              name: user.displayName,
+              email: user.email,
+              balance: 100,
+              createdAt: new Date(),
+              isAdmin: user.uid === ADMIN_UID
+            });
+          }
+        })
+        .catch(error => {
+          alert('Sign in failed: ' + error.message);
+        });
+    });
+
+    signOutBtn.addEventListener('click', () => {
+      signOut(auth);
+    });
+
+    addFundsBtn.addEventListener('click', () => paymentModal.classList.remove('hidden'));
+    cancelPaymentBtn.addEventListener('click', () => {
+      paymentModal.classList.add('hidden');
+      amountInput.value = '';
+    });
+
+    confirmPaymentBtn.addEventListener('click', () => {
+      const amount = parseFloat(amountInput.value);
+      if (isNaN(amount) || amount < 10) return alert("Enter valid amount (min ₹10)");
+
+      const options = {
+        key: "YOUR_RAZORPAY_KEY",
+        amount: amount * 100,
+        currency: "INR",
+        name: "Color Trading Game",
+        handler: () => addFundsToWallet(amount)
+      };
+      new Razorpay(options).open();
+    });
+
+    onAuthStateChanged(auth, user => {
+      if (user) {
+        currentUser = user;
+        authScreen.classList.add('hidden');
+        gameScreen.classList.remove('hidden');
+
+        userName.textContent = user.displayName || 'User';
+        userEmail.textContent = user.email;
+        userAvatar.src = user.photoURL || 'assets/default-avatar.png';
+
+        if (user.uid === ADMIN_UID) adminPanel.classList.remove('hidden');
+
+        const userRef = doc(db, 'users', user.uid);
+        onSnapshot(userRef, docSnap => {
+          if (docSnap.exists()) {
+            const data = docSnap.data();
+            userBalance.textContent = data.balance.toFixed(2);
+          }
+        });
+
+        const loadColors = async (owner, container) => {
+          const q = query(collection(db, 'colors'), where('owner', '==', owner));
+          const snap = await getDocs(q);
+          container.innerHTML = '';
+          snap.forEach(docSnap => {
+            const color = docSnap.data();
+            const card = document.createElement('div');
+            card.className = 'color-card';
+            card.style.backgroundColor = color.hex;
+            card.innerHTML = `<h3>${color.name}</h3><div class="color-price">₹${color.price.toFixed(2)}</div>`;
+            card.onclick = () => owner === 'marketplace' ? buyColor(docSnap.id, color.price) : sellColor(docSnap.id, color.price);
+            container.appendChild(card);
+          });
+        };
+
+        loadColors('marketplace', marketplaceGrid);
+        loadColors(user.uid, userCollection);
+      } else {
+        currentUser = null;
+        authScreen.classList.remove('hidden');
+        gameScreen.classList.add('hidden');
+      }
+    });
+
+    async function buyColor(colorId, price) {
+      const userRef = doc(db, 'users', currentUser.uid);
+      const colorRef = doc(db, 'colors', colorId);
+      await runTransaction(db, async t => {
+        const userDoc = await t.get(userRef);
+        if (!userDoc.exists) throw 'User not found';
+        const balance = userDoc.data().balance;
+        if (balance < price) throw 'Insufficient funds';
+        t.update(userRef, { balance: increment(-price) });
+        t.update(colorRef, { owner: currentUser.uid });
+      });
+      alert('Color purchased successfully!');
+    }
+
+    async function sellColor(colorId, price) {
+      const userRef = doc(db, 'users', currentUser.uid);
+      const colorRef = doc(db, 'colors', colorId);
+      await runTransaction(db, async t => {
+        t.update(userRef, { balance: increment(price) });
+        t.update(colorRef, { owner: 'marketplace' });
+      });
+      alert('Color sold successfully!');
+    }
+
+    async function addFundsToWallet(amount) {
+      if (!currentUser) return;
+      const userRef = doc(db, 'users', currentUser.uid);
+      await updateDoc(userRef, { balance: increment(amount) });
+      alert(`₹${amount.toFixed(2)} added to wallet.`);
+      paymentModal.classList.add('hidden');
+      amountInput.value = '';
+    }
+  </script>
 </body>
 </html>
